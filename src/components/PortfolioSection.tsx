@@ -271,6 +271,59 @@ export default function PortfolioSection() {
             </div>
           </div>
 
+          {/* Portfolio CTA button */}
+          <div style={{
+            marginTop: 80,
+            display: 'flex',
+            justifyContent: 'center',
+          }}>
+            <a
+              href="https://ashrafportfoliov2.netlify.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 14,
+                fontFamily: 'Space Mono, monospace',
+                fontSize: 13,
+                letterSpacing: '0.35em',
+                color: C.gold,
+                padding: '18px 42px',
+                border: `1px solid ${C.gold}`,
+                background: 'rgba(233,196,106,0.06)',
+                textDecoration: 'none',
+                position: 'relative',
+                overflow: 'hidden',
+                transition: 'all 0.35s ease',
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLAnchorElement
+                el.style.background = C.gold
+                el.style.color = C.deep
+                el.style.boxShadow = `0 0 32px rgba(233,196,106,0.45)`
+                el.style.transform = 'translateY(-2px)'
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLAnchorElement
+                el.style.background = 'rgba(233,196,106,0.06)'
+                el.style.color = C.gold
+                el.style.boxShadow = 'none'
+                el.style.transform = 'none'
+              }}
+            >
+              {/* Small ornamental star */}
+              <svg width="14" height="14" viewBox="0 0 20 20" style={{ flexShrink: 0 }}>
+                <polygon
+                  points="10,1 12.4,7.6 19.5,7.6 13.9,12.2 15.9,18.5 10,14.5 4.1,18.5 6.1,12.2 0.5,7.6 7.6,7.6"
+                  fill="currentColor"
+                />
+              </svg>
+              VIEW FULL PORTFOLIO
+              <span style={{ fontSize: 16, marginLeft: 4 }}>→</span>
+            </a>
+          </div>
+
           {/* Footer signature */}
           <div style={{
             marginTop: 80,

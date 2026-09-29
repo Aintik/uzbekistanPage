@@ -47,9 +47,14 @@ function UzbekReveal() {
       }} />*/}
       <div style={{
         position: 'absolute', inset: 0,
-        opacity: 0.6,
+        opacity: 0.6, overflow: 'hidden',
       }}>
-        <video autoPlay muted loop>
+        <video autoPlay muted loop playsInline style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          display: 'block',
+        }}>
           <source src='/video/uzbekistanDrone.mp4' type='video/mp4'/>
         </video>
       </div>
