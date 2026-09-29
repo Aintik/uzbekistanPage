@@ -241,7 +241,7 @@ export default function PortfolioSection() {
           <div style={{
             borderTop: '1px solid rgba(0,150,199,0.12)',
             paddingTop: 60,
-            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, alignItems: 'center',
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 40, alignItems: 'center',
           }}>
             <div>
               <div style={{ fontFamily: 'Cinzel, serif', fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 700, color: C.white, letterSpacing: '0.08em', lineHeight: 1.2 }}>

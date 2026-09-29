@@ -5,7 +5,7 @@ import UzbekWorld from './components/UzbekWorld'
 import PortfolioSection from './components/PortfolioSection'
 
 export default function App() {
-  const [dismissed, setDismissed] = useState(true) //TODO: change to false for prod
+  const [dismissed, setDismissed] = useState(false) //TODO: change to false for prod
 
   useEffect(() => {
     document.body.style.overflow = dismissed ? '' : 'hidden'
@@ -14,7 +14,8 @@ export default function App() {
 
   return (
     <div style={{ background: '#050a05' }}>
-      {/*<TerminalHero dismissed={dismissed} onDismiss={() => setDismissed(true)} /> TODO: activate for prod*/}
+      {/* TODO: activate for prod */}
+      <TerminalHero dismissed={dismissed} onDismiss={() => setDismissed(true)} />
       <div
         style={{
           opacity: dismissed ? 1 : 0,

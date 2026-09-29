@@ -158,31 +158,67 @@ export default function ZoomSequence() {
     const earthGroup = new THREE.Group()
     scene.add(earthGroup)
 
-    // Equirectangular land/ocean texture (2048×1024)
-    const ecv = document.createElement('canvas')
-    ecv.width = 2048; ecv.height = 1024
-    const ec = ecv.getContext('2d')!
-    const fill = (style: string, fn: () => void) => { ec.fillStyle = style; ec.beginPath(); fn(); ec.fill() }
-    ec.fillStyle = '#0c2c58'; ec.fillRect(0, 0, 2048, 1024)
-    fill('rgba(5,35,80,0.5)',   () => ec.ellipse(1024, 600,  900, 320, 0,     0, Math.PI*2))
-    fill('rgba(8,50,110,0.3)',  () => ec.ellipse(500,  420,  450, 190, 0.4,   0, Math.PI*2))
-    fill('#1a4920',             () => ec.ellipse(1400, 250,  520, 210, -0.15, 0, Math.PI*2))
-    fill('#1a4920',             () => ec.ellipse(1360, 165,  500,  90, -0.08, 0, Math.PI*2))
-    fill('#1a4920',             () => ec.ellipse(1450, 340,  150, 115,  0.3,  0, Math.PI*2))
-    fill('#1a4920',             () => ec.ellipse(1600, 330,  105,  82,  0,    0, Math.PI*2))
-    fill('#1a4920',             () => ec.ellipse(1090, 205,  130,  85,  0.3,  0, Math.PI*2))
-    fill('#22612a',             () => ec.ellipse(1382, 278,  140,  72,  0,    0, Math.PI*2)) // Central Asia
-    fill('#1a4920',             () => ec.ellipse(1200, 490,  165, 255,  0,    0, Math.PI*2))
-    fill('#1a4920',             () => ec.ellipse(1175, 415,  110,  85,  0,    0, Math.PI*2))
-    fill('#1a4920',             () => ec.ellipse(335,  225,  275, 185, -0.2,  0, Math.PI*2))
-    fill('#1a4920',             () => ec.ellipse(275,  340,   78,  62,  0.1,  0, Math.PI*2))
-    fill('#1a4920',             () => ec.ellipse(450,  585,  145, 235,  0.15, 0, Math.PI*2))
-    fill('#1a4920',             () => ec.ellipse(1725, 605,  135,  92, -0.1,  0, Math.PI*2))
-    ec.fillStyle = '#a8d0e2'; ec.beginPath(); ec.ellipse(525, 120, 62, 92, 0.2, 0, Math.PI*2); ec.fill()
-    ec.fillStyle = '#c8dff0'; ec.fillRect(0, 925, 2048, 99)
-    ec.fillStyle = '#b0cce4'; ec.fillRect(0, 0,   2048, 28)
-    fill('rgba(25,90,190,0.12)', () => ec.ellipse(780, 510, 720, 205, -0.3, 0, Math.PI*2))
-    const earthTex = new THREE.CanvasTexture(ecv)
+   const loader = new THREE.TextureLoader()
+    const maxAniso = renderer.capabilities.getMaxAnisotropy()
+
+    const loadTex = (url: string, srgb = false) => {
+      const t = loader.load(url)
+      t.anisotropy = maxAniso              // crisp at grazing angles
+      t.generateMipmaps = true
+      t.minFilter = THREE.LinearMipmapLinearFilter
+      t.magFilter = THREE.LinearFilter
+      if (srgb) t.colorSpace = THREE.SRGBColorSpace
+      return t
+    }
+
+    const earthTex  = loadTex('/textures/earth_atmos_2048.jpg', true)
+    const normalTex = loadTex('/textures/earth_normal_2048.jpg')
+    const specTex   = loadTex('/textures/earth_specular_2048.jpg')
+    const cloudTex  = loadTex('/textures/earth_clouds_1024.png', true)
+
+
+    const earthMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 128, 64),
+      new THREE.MeshPhongMaterial({
+        map: earthTex,
+        normalMap: normalTex,
+        normalScale: new THREE.Vector2(0.6, 0.6),
+        specularMap: specTex,
+        specular: new THREE.Color(0x335577),
+        shininess: 18,
+      })
+    )
+    earthGroup.add(earthMesh)
+
+    // Clouds
+    const cloudMat = new THREE.MeshPhongMaterial({
+      map: cloudTex, transparent: true, opacity: 0.55, depthWrite: false,
+    })
+    const cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(1.008, 96, 48), cloudMat)
+    earthGroup.add(cloudMesh)
+
+    // Fresnel atmosphere (soft rim glow instead of flat translucent sphere)
+    const atmoMat = new THREE.ShaderMaterial({
+      transparent: true,
+      side: THREE.BackSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      vertexShader: `
+        varying vec3 vNormal;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: `
+        varying vec3 vNormal;
+        void main() {
+          float i = pow(0.68 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.0);
+          gl_FragColor = vec4(0.25, 0.55, 1.0, 1.0) * i * 1.6;
+        }`,
+    })
+    earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1.12, 64, 64), atmoMat))
+
+   
 
     // Highlight texture: Central Asia turquoise → Uzbekistan gold → Tashkent white
     const hcv = document.createElement('canvas')
@@ -201,16 +237,11 @@ export default function ZoomSequence() {
     g3.addColorStop(0, 'rgba(255,255,255,1)'); g3.addColorStop(0.3, 'rgba(255,230,100,0.8)'); g3.addColorStop(1, 'rgba(255,180,0,0)')
     hc.fillStyle = g3; hc.beginPath(); hc.arc(1416, 277, 28, 0, Math.PI*2); hc.fill()
     const hlTex = new THREE.CanvasTexture(hcv)
-
-    const earthMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 128, 64),
-      new THREE.MeshPhongMaterial({ map: earthTex, specular: new THREE.Color(0x1a3a60), shininess: 22 })
-    )
-    earthGroup.add(earthMesh)
-    earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1.09, 32, 32), new THREE.MeshBasicMaterial({ color: 0x3a88ff, transparent: true, opacity: 0.075, side: THREE.BackSide })))
+    hlTex.colorSpace = THREE.SRGBColorSpace
+    // Highlight overlay (kept from your code)
     const hlMat  = new THREE.MeshBasicMaterial({ map: hlTex, transparent: true, opacity: 0, depthWrite: false })
     const hlMesh = new THREE.Mesh(new THREE.SphereGeometry(1.003, 128, 64), hlMat)
-    earthGroup.add(hlMesh)
+    //earthGroup.add(hlMesh)
 
     // Tashkent city marker (child of earthMesh → rotates with Earth)
     // Local position (before Earth.rotation.y): derived from lon 69.3°E, lat 41.3°N
@@ -229,7 +260,14 @@ export default function ZoomSequence() {
     tashkentRing.position.copy(tashkentLocal)
     tashkentRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tashkentLocal.clone().normalize())
     tashkentRing.visible = false
+    tashkentRingMat.depthWrite = false
+    tashkentRingMat.depthTest  = false
     earthMesh.add(tashkentRing)
+
+    cloudMesh.renderOrder = 1
+    hlMesh.renderOrder    = 2
+    tashkentDot.renderOrder  = 3
+    tashkentRing.renderOrder = 3
 
     /* ── Interaction state ── */
     let isDragging   = false
@@ -319,7 +357,11 @@ export default function ZoomSequence() {
         earthRotY += (rotTarget - earthRotY) * 0.028
       }
       earthMesh.rotation.y = earthRotY
-      hlMesh.rotation.y    = earthRotY
+      hlMesh.rotation.y = earthRotY
+      cloudMesh.rotation.y = earthRotY * 1.03 + time * 0.02   // drifts slightly faster than the ground
+      // fade clouds out as we zoom to the region so they don't hide Uzbekistan/Tashkent
+      const cloudTarget = s >= 4 ? 0.12 : s === 3 ? 0.3 : 0.55
+      cloudMat.opacity += (cloudTarget - cloudMat.opacity) * 0.05
 
       // Highlight layer opacity
       const hlTarget = s === 3 ? 0.7 : s >= 4 ? 1.0 : 0
@@ -352,7 +394,7 @@ export default function ZoomSequence() {
       window.removeEventListener('mousemove',  onMouseMove)
       window.removeEventListener('mouseup',    onMouseUp)
       canvas.removeEventListener('mousedown',  onMouseDown)
-      earthTex.dispose(); hlTex.dispose()
+      earthTex.dispose(); normalTex.dispose(); specTex.dispose(); cloudTex.dispose(); hlTex.dispose()
       renderer.dispose()
     }
   }, [])
