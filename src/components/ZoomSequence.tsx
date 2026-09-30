@@ -403,7 +403,12 @@ export default function ZoomSequence() {
 
   return (
     /* 300vh → 50vh per stage */
-    <div ref={outerRef} style={{ height: '250vh', display: (hei > 1.68) ? 'none': 'block'}}>
+    <div ref={outerRef}
+      style={{
+        height: '250vh',
+        //display: (hei > 1.68) ? 'none' : 'block'
+      }}
+    >
       <div style={{ position: 'sticky', top: 0, height: '100vh', overflow: 'hidden' }}>
 
         <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, display: 'block' }} />
