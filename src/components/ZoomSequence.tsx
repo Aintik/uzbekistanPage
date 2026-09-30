@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { useTerminalAudio } from './useTerminalAudio'
 
 /* ─── HUD metadata for each stage ─── */
 const STAGES = [
@@ -34,7 +35,10 @@ export default function ZoomSequence() {
   const [stage, setStage]         = useState(0)
   const [dragged, setDragged]     = useState(false)
   const [hei, setHei]     = useState(0)
-  const stageRef    = useRef(0)
+  const stageRef = useRef(0)
+  const audio = useTerminalAudio({ auto: true, chirp: false })
+  const audioRef = useRef(audio)
+  audioRef.current = audio
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -273,11 +277,15 @@ export default function ZoomSequence() {
     let isDragging   = false
     let lastMouseX   = 0, lastMouseY = 0
     let dragPhi      = 0   // horizontal orbit offset (radians)
-    let dragTheta    = 0   // vertical orbit offset (radians)
+    let dragTheta = 0   // vertical orbit offset (radians)
+    let motionLevel = 0
+    let lastY = window.scrollY, lastT = performance.now()
+    let lastPingPhase = 0
 
     canvas.style.cursor = 'grab'
 
     const onMouseDown = (e: MouseEvent) => {
+      audioRef.current.play('grab')
       isDragging = true
       lastMouseX = e.clientX; lastMouseY = e.clientY
       canvas.style.cursor = 'grabbing'
@@ -285,12 +293,17 @@ export default function ZoomSequence() {
     }
     const onMouseMove = (e: MouseEvent) => {
       if (!isDragging) return
+      motionLevel = Math.max(motionLevel, Math.min(0.6, Math.hypot(e.clientX - lastMouseX, e.clientY - lastMouseY) / 50))
       dragPhi   += (e.clientX - lastMouseX) * 0.004
       dragTheta += (e.clientY - lastMouseY) * 0.004
       dragTheta  = Math.max(-Math.PI / 2.8, Math.min(Math.PI / 2.8, dragTheta))
       lastMouseX = e.clientX; lastMouseY = e.clientY
     }
-    const onMouseUp   = () => { isDragging = false; canvas.style.cursor = 'grab' }
+    const onMouseUp = () => {
+      if (isDragging) audioRef.current.play('release')
+      isDragging = false
+      canvas.style.cursor = 'grab'
+    }
 
     canvas.addEventListener('mousedown', onMouseDown)
     window.addEventListener('mousemove', onMouseMove)
@@ -298,6 +311,10 @@ export default function ZoomSequence() {
 
     /* ── Scroll → stage ── */
     function handleScroll() {
+      const now = performance.now()
+      const v = Math.abs(window.scrollY - lastY) / Math.max(1, now - lastT)
+      lastY = window.scrollY; lastT = now
+      motionLevel = Math.max(motionLevel, Math.min(1, v / 2.5))
       if (!outerRef.current) return
       const p0 = -outerRef.current.getBoundingClientRect().top / (outerRef.current.offsetHeight - window.innerHeight)
       const p = Math.max(0, Math.min(1, p0))
@@ -315,6 +332,8 @@ export default function ZoomSequence() {
     function animate() {
       rafId = requestAnimationFrame(animate)
       time += 0.007
+      motionLevel = motionLevel < 0.004 ? 0 : motionLevel * 0.93
+      audioRef.current.setMotion(motionLevel)
 
       const s = stageRef.current
       const tgt = CAM[s]
@@ -376,6 +395,9 @@ export default function ZoomSequence() {
         tashkentRing.scale.setScalar(1 + pulse * 3.5)
         tashkentRingMat.opacity = 0.85 * (1 - pulse * 0.85)
       }
+      const ph = Math.floor((time * 4 + Math.PI / 2) / (Math.PI * 2))
+      if (s >= 5 && ph !== lastPingPhase) audioRef.current.play('ping')
+      lastPingPhase = ph
 
       renderer.render(scene, camera)
     }
@@ -396,8 +418,27 @@ export default function ZoomSequence() {
       canvas.removeEventListener('mousedown',  onMouseDown)
       earthTex.dispose(); normalTex.dispose(); specTex.dispose(); cloudTex.dispose(); hlTex.dispose()
       renderer.dispose()
+      audioRef.current.setMotion(0)
     }
   }, [])
+
+  // Ambience opens up as you descend
+  useEffect(() => { audio.setScene(stage) }, [stage, audio.setScene])
+
+  // One-shot cues on stage change
+  const prevStage = useRef(0)
+  useEffect(() => {
+    const prev = prevStage.current
+    prevStage.current = stage
+    if (stage === prev) return undefined
+    if (stage < prev) { audio.play('back'); return undefined }
+
+    audio.play('stage')
+    const cue = stage === 3 ? 'radar' : stage === 4 ? 'lock' : stage === 5 ? 'city' : null
+    if (!cue) return undefined
+    const t = setTimeout(() => audio.play(cue), stage === 3 ? 450 : 250)
+    return () => clearTimeout(t)
+  }, [stage, audio.play])
 
   const s = STAGES[stage]
 
@@ -415,6 +456,19 @@ export default function ZoomSequence() {
 
         {/* ── HUD ── */}
         <div className="font-terminal" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
+          {/* Sound Btn */}
+          <button
+            onClick={() => (audio.enabled ? audio.disable() : audio.enable())}
+            style={{
+              position: 'absolute', bottom: 30, right: 48, pointerEvents: 'auto',
+              background: 'transparent', border: '1px solid rgba(0,255,65,0.4)',
+              color: audio.enabled ? '#00ff41' : 'rgba(0,255,65,0.5)',
+              fontFamily: 'Space Mono, monospace', fontSize: 11,
+              letterSpacing: '0.2em', padding: '6px 12px', cursor: 'pointer',
+            }}
+          >
+            [ SOUND: {audio.enabled ? 'ON' : 'OFF'} ]
+          </button>
 
           {/* Corner brackets */}
           {([

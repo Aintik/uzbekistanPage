@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTerminalAudio, type SoundName } from './useTerminalAudio'
 
 interface Props {
   dismissed: boolean
@@ -9,6 +10,11 @@ type LineEntry = {
   text: string
   type: 'dim' | 'normal' | 'amber' | 'large' | 'italic' | 'sep' | 'button'
   delay: number
+}
+
+const LINE_SOUND: Record<LineEntry['type'], SoundName> = {
+  dim: 'blip', normal: 'tick', italic: 'tick',
+  amber: 'alert', large: 'impact', sep: 'sweep', button: 'ready',
 }
 
 const LINES: LineEntry[] = [
@@ -34,19 +40,27 @@ export default function TerminalHero({ dismissed, onDismiss }: Props) {
   const [visible, setVisible] = useState(0)
   const [fading, setFading] = useState(false)
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { enabled, enable, disable, play, fadeOut } = useTerminalAudio({ auto: true })
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => setMouse({ x: e.clientX, y: e.clientY })
+    const handler = (e: MouseEvent) => {
+      setMouse({ x: e.clientX, y: e.clientY })
+      play('move')
+    }
     window.addEventListener('mousemove', handler, { passive: true })
     return () => window.removeEventListener('mousemove', handler)
   }, [])
 
   useEffect(() => {
     const timers = LINES.map((l, i) =>
-      setTimeout(() => setVisible(v => Math.max(v, i + 1)), l.delay)
+      setTimeout(() => {
+        setVisible(v => Math.max(v, i + 1))
+        if (l.text) play(LINE_SOUND[l.type])
+      }, l.delay)
     )
     return () => timers.forEach(clearTimeout)
-  }, [])
+  }, [play])
+
 
   /* Live timestamp in status bar */
   const [ts, setTs] = useState(() => new Date().toISOString().slice(0, 19) + 'Z')
@@ -56,6 +70,8 @@ export default function TerminalHero({ dismissed, onDismiss }: Props) {
   }, [])
 
   function handleDismiss() {
+    play('dismiss')
+    fadeOut()
     setFading(true)
     setTimeout(onDismiss, 900)
   }
@@ -84,6 +100,19 @@ export default function TerminalHero({ dismissed, onDismiss }: Props) {
         overflow: 'hidden',
       }}
     >
+      {/* Sound toggle btn */}
+      <button
+        onClick={() => (enabled ? disable() : enable())}
+        style={{
+          position: 'absolute', top: 34, right: 44, zIndex: 11,
+          background: 'transparent', border: '1px solid rgba(0,255,65,0.4)',
+          color: enabled ? '#00ff41' : 'rgba(0,255,65,0.5)',
+          fontFamily: 'Space Mono, monospace', fontSize: 11,
+          letterSpacing: '0.2em', padding: '6px 12px', cursor: 'pointer',
+        }}
+      >
+        [ SOUND: {enabled ? 'ON' : 'OFF'} ]
+      </button>
       {/* Scanline */}
       <div className="scan-line" style={{ zIndex: 10 }} />
 
@@ -163,7 +192,8 @@ export default function TerminalHero({ dismissed, onDismiss }: Props) {
                       transition: 'all 0.2s',
                     }}
                     onMouseEnter={e => {
-                      ;(e.currentTarget as HTMLButtonElement).style.background = '#ffd60a'
+                      play('hover');
+                      (e.currentTarget as HTMLButtonElement).style.background = '#ffd60a'
                     }}
                     onMouseLeave={e => {
                       ;(e.currentTarget as HTMLButtonElement).style.background = '#00ff41'
